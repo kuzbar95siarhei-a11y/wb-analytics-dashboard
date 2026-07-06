@@ -272,6 +272,9 @@ elif st.session_state.current_tab == "📈 Динамика товара (Ист
             })
 
             # Форматируем столбцы: добавляем пробелы и знаки рубля
+            # Чтобы не было ошибки с типами данных, приводим весь датафрейм к типу object
+            detailed_display = detailed_display.astype(object)
+
             for col in ['Заказы (руб)', 'Выручка (руб)', 'Ср. Цена']:
                 detailed_display[col] = detailed_display[col].apply(lambda x: f"{format_number(x)} ₽" if pd.notna(x) and x > 0 else "0 ₽")
 
@@ -400,7 +403,9 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
                 min_vals = pd.DataFrame([comp_df[numeric_columns].min()] * len(comp_df), index=comp_df.index)
 
             css_df = pd.DataFrame('', index=comp_df.index, columns=comp_df.columns)
-            display_df = comp_df.copy()
+            
+            # ВАЖНОЕ ИСПРАВЛЕНИЕ: приводим к типу object, чтобы Pandas разрешил вставлять строки в колонки с цифрами
+            display_df = comp_df.astype(object).copy()
 
             for i, row in comp_df.iterrows():
                 is_mine = row['Is_Mine']
