@@ -180,7 +180,7 @@ elif st.session_state.current_tab == "📈 Динамика товара (Ист
     if selected_sku:
         sku_df = df_filtered_dates[df_filtered_dates['SKU'] == selected_sku]
         
-        # --- БЛОК ОСНОВНЫХ МЕТРИК (Только нужные данные) ---
+        # --- БЛОК ОСНОВНЫХ МЕТРИК ---
         st.markdown("### 📊 Основные показатели за выбранный период")
         if not sku_df.empty:
             total_orders = sku_df['Заказы_шт'].sum()
@@ -242,7 +242,7 @@ elif st.session_state.current_tab == "📈 Динамика товара (Ист
             )
             st.altair_chart(lines, use_container_width=True)
 
-            # --- ДЕТАЛЬНАЯ ТАБЛИЦА ПО ПЕРИОДАМ (ВОССТАНОВЛЕНА) ---
+            # --- ДЕТАЛЬНАЯ ТАБЛИЦА ПО ПЕРИОДАМ ---
             st.markdown("### 📋 Детализация показателей")
             
             # Чтобы нули не портили среднюю цену
@@ -272,7 +272,6 @@ elif st.session_state.current_tab == "📈 Динамика товара (Ист
             })
 
             # Форматируем столбцы: добавляем пробелы и знаки рубля
-            # Чтобы не было ошибки с типами данных, приводим весь датафрейм к типу object
             detailed_display = detailed_display.astype(object)
 
             for col in ['Заказы (руб)', 'Выручка (руб)', 'Ср. Цена']:
@@ -295,7 +294,6 @@ elif st.session_state.current_tab == "📈 Динамика товара (Ист
                 if not sku_sizes.empty:
                     display_sizes = sku_sizes.groupby('Размер', as_index=False).agg({'Корзины':'sum', 'Заказы':'sum', 'Выкупы':'sum'})
                     
-                    # Считаем сумму всех заказов и выкупов, чтобы найти долю каждого размера (от 100%)
                     total_orders_for_sizes = display_sizes['Заказы'].sum()
                     total_buyouts_for_sizes = display_sizes['Выкупы'].sum()
                     
@@ -364,8 +362,10 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
 
             comp_data['Цена'] = comp_data['Цена'].replace(0, pd.NA)
             
+            # Добавлена агрегация Выкупы_шт (Выкупы штуки) и Выкупы_руб (Выручка рубли)
             comp_df = comp_data.groupby(groupby_cols, as_index=False).agg({
-                'Показы': 'sum', 'Клики': 'sum', 'Корзины': 'sum', 'Заказы_шт': 'sum', 'Выкупы_руб': 'sum',
+                'Показы': 'sum', 'Клики': 'sum', 'Корзины': 'sum', 'Заказы_шт': 'sum', 
+                'Выкупы_шт': 'sum', 'Выкупы_руб': 'sum',
                 'Цена': 'mean'
             })
             
@@ -384,7 +384,14 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
             comp_df['CTR (%)'] = (comp_df['Клики'] / comp_df['Показы'] * 100).round(2)
             comp_df['В Корзину (%)'] = (comp_df['Корзины'] / comp_df['Клики'] * 100).round(2)
             comp_df['В Заказ (%)'] = (comp_df['Заказы_шт'] / comp_df['Корзины'] * 100).round(2)
-            comp_df = comp_df.rename(columns={'Выкупы_руб': 'Выручка (руб)', 'Цена': 'Ср. Цена (руб)'})
+            
+            # Переименовываем столбцы для итоговой таблицы
+            comp_df = comp_df.rename(columns={
+                'Заказы_шт': 'Заказы (шт)',
+                'Выкупы_шт': 'Выкупы (шт)',
+                'Выкупы_руб': 'Выручка (руб)', 
+                'Цена': 'Ср. Цена (руб)'
+            })
 
             # Сортировка: Мой товар всегда сверху
             comp_df['Is_Mine'] = comp_df['SKU_clean'] == my_sku
@@ -393,7 +400,8 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
             else:
                 comp_df = comp_df.sort_values(by=['Sort_Num', 'Is_Mine', 'Выручка (руб)'], ascending=[True, False, False]).reset_index(drop=True)
 
-            numeric_columns = ['Ср. Цена (руб)', 'Показы', 'Клики', 'Корзины', 'Заказы_шт', 'Выручка (руб)', 'CTR (%)', 'В Корзину (%)', 'В Заказ (%)']
+            # Определяем порядок столбцов в таблице
+            numeric_columns = ['Ср. Цена (руб)', 'Показы', 'Клики', 'Корзины', 'Заказы (шт)', 'Выкупы (шт)', 'Выручка (руб)', 'CTR (%)', 'В Корзину (%)', 'В Заказ (%)']
 
             if grouping_comp != "За весь выбранный период":
                 max_vals = comp_df.groupby('Период')[numeric_columns].transform('max')
@@ -404,7 +412,7 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
 
             css_df = pd.DataFrame('', index=comp_df.index, columns=comp_df.columns)
             
-            # ВАЖНОЕ ИСПРАВЛЕНИЕ: приводим к типу object, чтобы Pandas разрешил вставлять строки в колонки с цифрами
+            # Приводим к типу object, чтобы Pandas разрешил вставлять форматированные строки со знаками ₽
             display_df = comp_df.astype(object).copy()
 
             for i, row in comp_df.iterrows():
@@ -420,6 +428,7 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
                     
                     if pd.isna(val): formatted_val = ""
                     elif col in ['CTR (%)', 'В Корзину (%)', 'В Заказ (%)']: formatted_val = f"{val:.2f}%"
+                    elif col in ['Ср. Цена (руб)', 'Выручка (руб)']: formatted_val = f"{format_number(val)} ₽"
                     else: formatted_val = format_number(val)
                         
                     if pd.notna(val) and val == leader_val and leader_val > 0:
