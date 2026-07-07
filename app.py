@@ -362,9 +362,10 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
 
             comp_data['Цена'] = comp_data['Цена'].replace(0, pd.NA)
             
-            # Добавлена агрегация Выкупы_шт (Выкупы штуки) и Выкупы_руб (Выручка рубли)
+            # Добавлена агрегация Заказы_руб
             comp_df = comp_data.groupby(groupby_cols, as_index=False).agg({
-                'Показы': 'sum', 'Клики': 'sum', 'Корзины': 'sum', 'Заказы_шт': 'sum', 
+                'Показы': 'sum', 'Клики': 'sum', 'Корзины': 'sum', 
+                'Заказы_шт': 'sum', 'Заказы_руб': 'sum', 
                 'Выкупы_шт': 'sum', 'Выкупы_руб': 'sum',
                 'Цена': 'mean'
             })
@@ -388,6 +389,7 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
             # Переименовываем столбцы для итоговой таблицы
             comp_df = comp_df.rename(columns={
                 'Заказы_шт': 'Заказы (шт)',
+                'Заказы_руб': 'Заказы (руб)',
                 'Выкупы_шт': 'Выкупы (шт)',
                 'Выкупы_руб': 'Выручка (руб)', 
                 'Цена': 'Ср. Цена (руб)'
@@ -400,8 +402,8 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
             else:
                 comp_df = comp_df.sort_values(by=['Sort_Num', 'Is_Mine', 'Выручка (руб)'], ascending=[True, False, False]).reset_index(drop=True)
 
-            # Определяем порядок столбцов в таблице
-            numeric_columns = ['Ср. Цена (руб)', 'Показы', 'Клики', 'Корзины', 'Заказы (шт)', 'Выкупы (шт)', 'Выручка (руб)', 'CTR (%)', 'В Корзину (%)', 'В Заказ (%)']
+            # Определяем порядок столбцов в таблице с новым полем "Заказы (руб)"
+            numeric_columns = ['Ср. Цена (руб)', 'Показы', 'Клики', 'Корзины', 'Заказы (шт)', 'Заказы (руб)', 'Выкупы (шт)', 'Выручка (руб)', 'CTR (%)', 'В Корзину (%)', 'В Заказ (%)']
 
             if grouping_comp != "За весь выбранный период":
                 max_vals = comp_df.groupby('Период')[numeric_columns].transform('max')
@@ -428,7 +430,7 @@ elif st.session_state.current_tab == "⚔️ Сравнение конкурен
                     
                     if pd.isna(val): formatted_val = ""
                     elif col in ['CTR (%)', 'В Корзину (%)', 'В Заказ (%)']: formatted_val = f"{val:.2f}%"
-                    elif col in ['Ср. Цена (руб)', 'Выручка (руб)']: formatted_val = f"{format_number(val)} ₽"
+                    elif col in ['Ср. Цена (руб)', 'Заказы (руб)', 'Выручка (руб)']: formatted_val = f"{format_number(val)} ₽"
                     else: formatted_val = format_number(val)
                         
                     if pd.notna(val) and val == leader_val and leader_val > 0:
